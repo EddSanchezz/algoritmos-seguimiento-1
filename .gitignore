@@ -179,3 +179,12 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Archivos locales del corpus y resultados generados
+data/processed/*
+!data/processed/.gitkeep
+reports/generated/
+
+# Entorno local de Python
+.venv/
+venv/

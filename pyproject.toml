@@ -1,0 +1,19 @@
+# algoritmos-seguimiento-1
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bibliometric-analysis"
+version = "0.1.0"
+description = "Analisis de texto y comparacion de algoritmos de ordenamiento para un corpus bibliometrico."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+bibliometric-analysis = "bibliometric_analysis.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
