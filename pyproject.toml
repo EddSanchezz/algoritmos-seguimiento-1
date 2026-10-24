@@ -10,7 +10,9 @@ version = "0.1.0"
 description = "Analisis de texto y comparacion de algoritmos de ordenamiento para un corpus bibliometrico."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pdfplumber>=0.11.0",
+]
 
 [project.scripts]
 bibliometric-analysis = "bibliometric_analysis.cli:main"
