@@ -1,4 +1,5 @@
-"""Módulo de extracción de información de PDFs científicos."""
+"""Extraccion de titulo, autores y abstract de PDFs cientificos."""
+
 import re
 import unicodedata
 from collections import Counter
@@ -15,9 +16,17 @@ ACENTOS = {
     "\u02c6": "\u0302", "\u02c7": "\u030c", "\u00b8": "\u0327", "\u02ca": "\u0301"
 }
 
+# Referencia bibliografica insertada por error dentro de un abstract.
+# Es el caso del PDF 14: cita entre parentesis, anio, titulo y paginas.
+REFERENCIA_INCRUSTADA = re.compile(
+    r"\([A-Z][A-Za-z'\u2019-]+,\s*[A-Z]\.[^()]*?\b(?:19|20)\d{2}\)\."
+    r"\s+[A-Z][^()]*?\.\s+[^()]*?,\s*\d+[^()]*?\)"
+)
+
 
 def limpiar(texto):
-    """Limpia texto: normaliza Unicode y elimina espacios extra."""
+    """Normaliza Unicode, guiones tipograficos y espacios."""
+    texto = texto.replace("\u2010", "-").replace("\u2011", "-")
     texto = re.sub(r"(?<=[A-Za-z])\s?([" + "".join(ACENTOS) + r"])", lambda m: ACENTOS[m.group(1)], texto)
     texto = unicodedata.normalize("NFKC", unicodedata.normalize("NFC", texto))
     texto = re.sub(r"\s+([,;.])", r"\1", texto)
@@ -49,7 +58,7 @@ def leer_palabras(pagina):
 
 
 def lineas(palabras):
-    """Agrupa palabras en líneas basándose en posición vertical."""
+    """Agrupa palabras en lineas basandose en posicion vertical."""
     palabras = sorted(palabras, key=lambda p: (p["top"] + p["bottom"]) / 2)
     res, centro = [], None
     for p in palabras:
@@ -62,12 +71,12 @@ def lineas(palabras):
 
 
 def ordenar(palabras):
-    """Ordena palabras por posición visual (líneas y luego horizontal)."""
+    """Ordena palabras por posicion visual (lineas y luego horizontal)."""
     return [p for l in lineas(palabras) for p in l]
 
 
 def unir(palabras, vocab=None):
-    """Une líneas; repara guiones de fin de línea."""
+    """Une lineas y decide si un guion de fin de linea se conserva."""
     vocab = vocab or set()
     texto = ""
     for l in lineas(palabras):
@@ -78,10 +87,10 @@ def unir(palabras, vocab=None):
             if sig.lower() in CONECTORES:
                 texto += " " + linea
             else:
-                base = re.sub(r"\W", "", pre + sig).lower()
-                if base in vocab:
-                    texto = texto[:-1] + linea
-                elif re.sub(r"[^\w-]", "", pre + "-" + sig).lower() in vocab:
+                # Si la forma con guion existe en el documento, es un compuesto
+                # real (AI-driven, instance-based). Si no, es un corte de linea.
+                con_guion = re.sub(r"[^\w-]", "", pre + "-" + sig).lower()
+                if con_guion in vocab:
                     texto += linea
                 else:
                     texto = texto[:-1] + linea
@@ -90,19 +99,20 @@ def unir(palabras, vocab=None):
     return limpiar(texto)
 
 
-def vocabulario(palabras):
-    """Genera vocabulario de la página para validar uniones."""
-    return {re.sub(r"\W", "", w["text"]).lower() for w in palabras} | \
-           {re.sub(r"[^\w-]", "", w["text"]).lower() for w in palabras}
+def build_document_vocabulary(pdf):
+    """Construye el vocabulario de todo el PDF para decidir guiones."""
+    text = " ".join((page.extract_text() or "") for page in pdf.pages)
+    text = text.replace("\u2010", "-").replace("\u2011", "-").replace("\u2019", "'")
+    return {word.lower() for word in re.findall(r"[^\W\d_]+(?:[-'][^\W\d_]+)*", text)}
 
 
 def tamano_dominante(palabras):
-    """Retorna el tamaño de fuente más común."""
+    """Retorna el tamano de fuente mas comun."""
     return Counter(round(p["size"] * 2) / 2 for p in palabras).most_common(1)[0][0]
 
 
 def encontrar_abstract(palabras):
-    """Encuentra la posición del encabezado Abstract."""
+    """Encuentra la posicion del encabezado Abstract."""
     ordenadas = ordenar(palabras)
     letras = "ABSTRACT"
     cands = []
@@ -135,7 +145,7 @@ def bloques(palabras):
 
 
 def extraer_titulo(palabras, vocab, titulo_meta=None):
-    """Extrae el título del artículo."""
+    """Extrae el titulo del articulo."""
     ini, _ = encontrar_abstract(palabras)
     arriba = [p for p in palabras if ini is None or p["top"] < ini["top"]]
     cuerpo = tamano_dominante(palabras)
@@ -165,7 +175,7 @@ MARCA = re.compile(r"^[a-z\d*∗†‡§¶#]{1,2},?$")
 
 
 def extraer_autores(palabras, fin_titulo, vocab):
-    """Extrae los autores del artículo."""
+    """Extrae los autores del articulo."""
     ini, _ = encontrar_abstract(palabras)
     cortes = [p["top"] for p in palabras if p["top"] > fin_titulo and p["text"].startswith("Correspondence")]
     if ini is not None and ini["top"] > fin_titulo:
@@ -198,7 +208,7 @@ FIN = re.compile(r"^(keywords?|key\s*words?|index|palabras|introduction|introduc
 
 
 def extraer_abstract(palabras, vocab):
-    """Extrae el abstract del artículo."""
+    """Extrae el abstract del articulo."""
     ini, fin_enc = encontrar_abstract(palabras)
     if ini is None:
         return None
@@ -237,55 +247,113 @@ def extraer_abstract(palabras, vocab):
     ref = tamano_dominante(zona)
     zona = [p for p in zona if abs(p["size"] - ref) <= 0.5]
     txt = unir(zona, vocab)
-    return re.sub(r"^(abstract|resumen)\W*", "", txt, flags=re.I)
+    return re.sub(r"^(abstract|resumen|summary)\W*", "", txt, flags=re.I)
+
+
+def remove_embedded_references(texto):
+    """Elimina referencias bibliograficas insertadas dentro del abstract."""
+    return REFERENCIA_INCRUSTADA.sub("", texto)
+
+
+def _file_id(path):
+    """Obtiene el numero inicial del nombre del archivo."""
+    match = re.match(r"(\d+)", Path(path).name)
+    return int(match.group(1)) if match else None
 
 
 def extract_pdf(pdf_path):
     """
-    Extrae título, autores y abstract de un PDF científico.
-    
-    Args:
-        pdf_path: Ruta al archivo PDF.
-    
+    Extrae titulo, autores y abstract de un PDF cientifico.
+
     Returns:
-        dict con claves: 'archivo', 'titulo', 'autores', 'abstract', 'aviso'
+        dict con id, archivo, titulo, autores, abstract y advertencias.
     """
-    with pdfplumber.open(pdf_path) as pdf:
-        palabras = leer_palabras(pdf.pages[0])
-        titulo_meta = (pdf.metadata or {}).get("Title")
-    if not palabras:
-        return {
-            "archivo": pdf_path,
-            "titulo": None,
-            "autores": None,
-            "abstract": None,
-            "aviso": "sin capa de texto (¿PDF escaneado?)"
-        }
-    vocab = vocabulario(palabras)
-    titulo, fin_titulo = extraer_titulo(palabras, vocab, titulo_meta)
-    return {
-        "archivo": pdf_path,
-        "titulo": titulo,
-        "autores": extraer_autores(palabras, fin_titulo, vocab),
-        "abstract": extraer_abstract(palabras, vocab)
+    path = Path(pdf_path)
+    record = {
+        "id": _file_id(path),
+        "file": path.name,
+        "title": None,
+        "authors": None,
+        "abstract": None,
+        "warnings": [],
     }
+    try:
+        with pdfplumber.open(path) as pdf:
+            if not pdf.pages:
+                record["warnings"].append("PDF sin paginas")
+                return record
+            palabras = leer_palabras(pdf.pages[0])
+            titulo_meta = (pdf.metadata or {}).get("Title")
+            vocab = build_document_vocabulary(pdf)
+    except Exception as exc:
+        record["warnings"].append(f"no se pudo abrir el PDF: {exc}")
+        return record
+
+    if not palabras:
+        record["warnings"].append("sin capa de texto (posible PDF escaneado)")
+        return record
+
+    titulo, fin_titulo = extraer_titulo(palabras, vocab, titulo_meta)
+    record["title"] = titulo or None
+    record["authors"] = extraer_autores(palabras, fin_titulo, vocab) or None
+
+    abstract = extraer_abstract(palabras, vocab)
+    if not abstract:
+        record["warnings"].append("no se encontro el abstract")
+        return record
+
+    sin_referencias = remove_embedded_references(abstract)
+    if sin_referencias != abstract:
+        record["warnings"].append("se elimino una referencia bibliografica incrustada")
+    record["abstract"] = limpiar(sin_referencias).lower()
+    return record
+
+
+def _sort_key(path):
+    """Ordena los PDFs por el numero inicial de su nombre."""
+    file_id = _file_id(path)
+    return (file_id is None, file_id or 0, path.name.lower())
 
 
 def extract_all_from_directory(directory_path):
     """
-    Extrae información de todos los PDFs en un directorio.
-    
-    Args:
-        directory_path: Ruta al directorio con PDFs.
-    
+    Extrae informacion de todos los PDFs de un directorio.
+
     Returns:
-        Lista de diccionarios con la información de cada PDF.
+        Lista de diccionarios ordenada por el numero inicial del archivo.
     """
-    pdf_files = list(Path(directory_path).glob("*.pdf"))
-    results = []
-    
+    pdf_files = sorted(Path(directory_path).glob("*.pdf"), key=_sort_key)
+    records = []
     for pdf_file in pdf_files:
-        result = extract_pdf(str(pdf_file))
-        results.append(result)
-    
-    return results
+        try:
+            records.append(extract_pdf(str(pdf_file)))
+        except Exception as exc:
+            records.append({
+                "id": _file_id(pdf_file),
+                "file": pdf_file.name,
+                "title": None,
+                "authors": None,
+                "abstract": None,
+                "warnings": [f"error inesperado: {exc}"],
+            })
+    return records
+
+
+def validate_extraction(records, expected_count=20):
+    """Devuelve los problemas detectados en la extraccion del corpus."""
+    problems = []
+    if len(records) != expected_count:
+        problems.append(f"se esperaban {expected_count} PDFs y se encontraron {len(records)}")
+    for record in records:
+        label = record.get("file") or record.get("id") or "?"
+        abstract = record.get("abstract")
+        if not abstract:
+            problems.append(f"{label}: sin abstract")
+            continue
+        if not 500 <= len(abstract) <= 3000:
+            problems.append(f"{label}: longitud atipica ({len(abstract)} caracteres)")
+        if abstract != abstract.lower():
+            problems.append(f"{label}: el abstract no esta en minusculas")
+        if "keywords" in abstract[-200:].lower():
+            problems.append(f"{label}: posible contaminacion con keywords")
+    return problems
