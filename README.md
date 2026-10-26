@@ -15,7 +15,6 @@ Cada punto de entrada ejecuta un solo algoritmo sobre el mismo corpus. El tiempo
 
 ```text
 data/raw/                              # Los 20 artículos PDF
-data/processed/                        # Reservado para resultados
 src/bibliometric_analysis/
 ├── pdf_extractor/pdf_extractor.py     # Extrae título, autores y abstract
 ├── text_processing.py                 # Normaliza, filtra y cuenta términos
