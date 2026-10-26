@@ -83,6 +83,29 @@ class TestRadixSort(unittest.TestCase):
         self.assertEqual(result[1][1], 0)
         self.assertEqual(result[2][1], 0)
 
+    def test_negative_frequency_raises_value_error(self):
+        """Verifica que lance ValueError si alguna frecuencia es negativa."""
+        with self.assertRaises(ValueError):
+            radix_sort([("valido", 10), ("invalido", -1)])
+
+    def test_generator_iterable_support(self):
+        """Verifica que acepte generadores o iterables que no sean listas puras."""
+        gen = (("word_" + str(i), i) for i in range(5))
+        result = radix_sort(gen, descending=True)
+        self.assertEqual(len(result), 5)
+        self.assertEqual(result[0][1], 4)
+        self.assertEqual(result[-1][1], 0)
+
+    def test_stress_many_items(self):
+        """Prueba de estres con miles de elementos."""
+        import random
+        random.seed(42)
+        stress_data = [(f"term_{i}", random.randint(0, 5000)) for i in range(5000)]
+        result = radix_sort(stress_data, descending=True)
+        self.assertEqual(len(result), 5000)
+        frequencies = [f for _, f in result]
+        self.assertEqual(frequencies, sorted(frequencies, reverse=True))
+
 
 if __name__ == "__main__":
     unittest.main()

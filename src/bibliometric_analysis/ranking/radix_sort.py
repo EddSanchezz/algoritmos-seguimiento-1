@@ -45,10 +45,15 @@ def radix_sort(
         items: Lista de tuplas con formato (termino, frecuencia).
         descending: True para ranking (mayor a menor frecuencia), False para ascendente.
     """
-    if len(items) <= 1:
-        return list(items)
-
     result = list(items)
+
+    if len(result) <= 1:
+        return result
+
+    # Validacion: las frecuencias no pueden ser negativas
+    for _, freq in result:
+        if freq < 0:
+            raise ValueError("Las frecuencias no pueden ser negativas")
 
     # Buscar la frecuencia mas alta para saber cuantos digitos procesar
     max_freq = max(item[1] for item in result)
