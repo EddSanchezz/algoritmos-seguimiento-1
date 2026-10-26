@@ -1,138 +1,142 @@
-# Seguimiento 2026-2: analisis de algoritmos en bibliometria
+# Análisis de algoritmos en bibliometría
 
-## Proposito
+Proyecto académico del Seguimiento 2026-2. Procesa los abstracts de 20 artículos científicos y genera rankings de términos frecuentes. El título y los autores se extraen como metadatos, pero no se cuentan.
 
-Construir una aplicacion academica que procese los resumenes (abstracts) de un corpus controlado de 20 articulos cientificos sobre inteligencia artificial generativa. La aplicacion contara los terminos del corpus y comparara tres algoritmos de ordenamiento no basados en comparaciones para obtener un ranking de frecuencia: Counting Sort, Radix Sort y Bucket Sort.
+El documento del seguimiento solicita implementar Counting Sort, Radix Sort y Bucket Sort, explicar sus complejidades, medir los tiempos en milisegundos y presentar el top 15 de cada algoritmo. Este README explica el flujo del proyecto y desarrolla Counting Sort; Radix Sort y Bucket Sort son implementaciones de otros integrantes.
 
-El proyecto busca que el codigo sea facil de leer y explicar. La implementacion debe permitir relacionar algoritmos clasicos y estructuras de datos con el procesamiento computacional de texto, y servir como base para el analisis teorico y la medicion empirica solicitados en el seguimiento.
-
-## Alcance indicado por el documento del curso
-
-El PDF `Seguimiento 2026-2.pdf` establece estos requisitos. El archivo PDF es material de referencia del curso; sus requisitos se incorporan aqui como especificacion del proyecto.
-
-- El corpus es estatico y controlado: 20 articulos cientificos entregados por el docente en formato PDF.
-- El analisis debe enfocarse estrictamente y de forma primordial en el abstract de cada articulo.
-- El titulo y los autores tambien pueden extraerse, pero solo para los requerimientos funcionales que necesiten cruzar esa informacion. No forman parte del texto principal que se cuenta, salvo acuerdo explicito posterior.
-- Se debe generar el ranking de terminos mas frecuentes del corpus completo.
-- El ranking debe implementarse mediante Counting Sort, Radix Sort y Bucket Sort, algoritmos que no ordenan comparando directamente cada par de elementos.
-- El informe debe explicar por que cada algoritmo alcanza la complejidad asintotica pertinente (`O(n + k)` u `O(n)`), especificando que representan `n` y `k` en la implementacion concreta y bajo que supuestos aplica el analisis.
-- Se deben medir los tiempos reales de ejecucion de cada implementacion en milisegundos sobre la lista de frecuencias del corpus completo.
-- Se debe presentar una tabla o grafico con los 15 terminos mas frecuentes, obtenido con cada uno de los tres algoritmos.
-
-## Decisiones acordadas
-
-- **Lenguaje:** Python 3.11 o superior.
-- **Framework:** no se usara un framework. El proyecto es una aplicacion pequena de procesamiento por lotes: lee un corpus fijo, procesa texto y ejecuta algoritmos. La biblioteca estandar de Python alcanza para esta base, evita conceptos y dependencias innecesarios y permite concentrarse en explicar los algoritmos. Se puede agregar una biblioteca puntual para extraer texto de PDF si hace falta; eso no requiere un framework.
-- **Corpus:** los 20 PDF entregados se guardan en `data/raw/` y se versionan junto con el proyecto, tal como se acordo.
-- **Texto:** los articulos estan en ingles. La normalizacion sera opcional: cuando este activada, convierte a minusculas y quita diacriticos, conservando la `ñ`; cuando este desactivada, respeta mayusculas y diacriticos. No se eliminaran stopwords.
-- **Representacion:** las frecuencias se mantienen en un diccionario de Python (`term -> frequency`). Para ordenar se convertiran en pares `(term, frequency)`, que conservan el termino asociado a su frecuencia.
-- **Informe:** se preparara mas adelante en formato IEEE; el usuario se encargara de las normas de presentacion.
-- **Idioma del codigo:** nombres de variables, funciones, modulos y clases en ingles; comentarios y docstrings explicativos en espanol.
-- **Estilo:** funciones pequenas, nombres descriptivos, flujo directo y estructuras de datos conocidas. Evitar abreviaturas opacas, metaprogramacion, clases innecesarias y dependencias sin justificacion.
-- **Medicion:** los tres algoritmos reciben los mismos datos y se mide solamente el ordenamiento, excluyendo extraccion y conteo. No se agregaran repeticiones o estadisticas no solicitadas por el curso.
-- **Commits:** el usuario hara los commits manualmente. No hacer commits ni subir cambios a GitHub.
-
-## Estructura propuesta
+## Estructura
 
 ```text
-.
-├── README.md
-├── pyproject.toml
-├── data/
-│   ├── raw/                 # Los 20 PDF originales del corpus
-│   └── processed/           # Texto y datos derivados; fuera de Git
-├── reports/                 # Informe y resultados exportados
-├── src/
-│   └── bibliometric_analysis/
-│       ├── cli.py           # Interfaz de linea de comandos
-│       ├── text_processing.py
-│       └── ranking/
-│           ├── counting_sort.py
-│           ├── radix_sort.py
-│           └── bucket_sort.py
-└── tests/                   # Pruebas de las funciones y algoritmos
+data/
+├── raw/                         # Los 20 artículos en PDF
+└── processed/                   # Espacio reservado para resultados generados
+src/bibliometric_analysis/
+├── pdf_extractor/
+│   ├── __init__.py
+│   └── pdf_extractor.py         # Extracción y validación de abstracts
+├── ranking/
+│   ├── __init__.py
+│   ├── counting_sort.py         # Implementación explicada en este README
+│   ├── radix_sort.py            # Implementación de otro integrante
+│   └── bucket_sort.py           # Implementación de otro integrante
+├── text_processing.py           # Tokenización y conteo
+├── main.py                      # Entrada principal actual
+└── cli.py                       # Comando configurado en pyproject.toml
 ```
 
-La estructura inicial reserva modulos por responsabilidad; los modulos de algoritmos aun no contienen implementaciones. `data/raw/` contiene los PDF del corpus y debe mantenerse en el repositorio. Los datos derivados se excluyen de Git para evitar almacenar resultados generados que pueden reconstruirse.
+## Flujo de los datos
 
-## Responsabilidades por modulo
+1. `extract_all_from_directory("data/raw")` procesa los PDF en orden y devuelve un registro por archivo.
+2. Cada registro contiene `id`, `file`, `title`, `authors`, `abstract` y `warnings`. Solo el abstract pasa al conteo.
+3. `count_term_frequencies` tokeniza los abstracts y devuelve un diccionario `{termino: frecuencia}`.
+4. `list(frequencies.items())` crea los pares `(termino, frecuencia)` que reciben los algoritmos de ranking.
+5. Counting Sort devuelve los pares ordenados de mayor a menor frecuencia. Se puede tomar `ranking[:15]` para obtener su top 15.
 
-| Modulo | Responsabilidad prevista |
-| --- | --- |
-| `text_processing.py` | Normalizar el texto del abstract y contar terminos una vez se acuerden las reglas de limpieza. |
-| `ranking/counting_sort.py` | Ordenar las frecuencias usando conteo de claves dentro de un rango conocido. |
-| `ranking/radix_sort.py` | Ordenar frecuencias enteras procesando sus digitos. |
-| `ranking/bucket_sort.py` | Distribuir las frecuencias en cubetas y ordenarlas segun la variante documentada. |
-| `cli.py` | Conectar lectura de corpus, procesamiento, ranking y exportacion mediante comandos comprensibles. |
-| `tests/` | Verificar casos normales, limites, entradas vacias y que los tres algoritmos produzcan el mismo orden esperado. |
+## Extracción de PDF
 
-Esta separacion es una propuesta inicial. Debe adaptarse si el formato entregado por el docente o las reglas de extraccion requieren otros modulos.
+El código está en `src/bibliometric_analysis/pdf_extractor/pdf_extractor.py` y usa `pdfplumber`.
 
-## Reglas de texto y datos pendientes de acordar
+- `extract_pdf(path)` extrae un PDF; `extract_all_from_directory(path)` procesa los PDF de una carpeta.
+- La primera página se usa para localizar título, autores y abstract. También se leen las páginas del documento para construir el vocabulario que ayuda a distinguir cortes de línea de compuestos reales.
+- Se reconstruyen las líneas del abstract, se corrigen los cortes de palabra y se conserva el guion cuando corresponde a un compuesto presente en el documento, por ejemplo `instance-based` o `ai-driven`.
+- Los abstracts quedan en minúsculas y se conservan sus acentos. El PDF 14 contiene una referencia incrustada en el abstract; el extractor la elimina.
+- `validate_extraction(records)` comprueba que estén los 20 registros, que tengan abstract y que su longitud y formato sean razonables.
 
-El documento no especifica como extraer el abstract de cada PDF ni como limpiar el texto. La regla acordada para normalizar es opcional y no elimina stopwords:
+La extracción completa puede tardar alrededor de un minuto y medio porque el vocabulario se construye leyendo todas las páginas. Los PDF deben tener una capa de texto; los PDF escaneados pueden requerir OCR, que no está implementado.
 
-- Con normalizacion activada, pasar a minusculas y quitar diacriticos, preservando la letra `ñ` (por ejemplo, `é` pasa a `e`, pero `ñ` sigue siendo `ñ`).
-- Con normalizacion desactivada, preservar mayusculas y diacriticos. En ambos modos se requiere una tokenizacion consistente, que separara las palabras de la puntuacion sin eliminar palabras por ser comunes.
-- No aplicar stopwords, stemming ni lematizacion.
-- Como identificar el abstract cuando los PDF tengan formatos distintos y como registrar extracciones fallidas para revision manual.
-- La unidad de ranking es el par `(termino, frecuencia)`. El diccionario `term -> frequency` es una forma sencilla de construir y consultar el conteo; antes de ordenar, sus entradas se convierten en pares para que nunca se pierda la relacion entre palabra y cantidad.
-- No se anadira un criterio adicional de desempate. Si varios terminos tienen la misma frecuencia, se acepta el orden que produzca la implementacion del algoritmo, siempre que no se pierdan terminos ni frecuencias.
+Ejemplo:
 
-No se debe asumir que texto obtenido por extraccion automatica del PDF es correcto sin una forma de inspeccion o validacion.
+```python
+from bibliometric_analysis.pdf_extractor import extract_all_from_directory
+from bibliometric_analysis.pdf_extractor.pdf_extractor import validate_extraction
 
-## Requisitos de los algoritmos y medicion
+records = extract_all_from_directory("data/raw")
+problems = validate_extraction(records)
+print(problems)
+```
 
-- Documentar en cada algoritmo el contrato de entrada y salida, la idea general y la complejidad con sus supuestos.
-- Ordenar de forma descendente para el ranking final; si internamente conviene ordenar ascendente, hacer explicita la conversion.
-- No agregar un paso de desempate. Validar que los resultados ordenen correctamente por frecuencia y conserven los terminos empatados; el orden relativo de elementos con igual frecuencia puede variar entre algoritmos.
-- Comparar el resultado de los tres algoritmos y confirmar que el top 15 coincide.
-- Medir en milisegundos con el mismo conjunto de entrada; ejecutar varias repeticiones puede ayudar a reducir ruido, pero la cantidad de repeticiones y la estadistica reportada quedan pendientes de acuerdo.
-- Separar la medicion de ordenamiento del tiempo de lectura, extraccion y conteo.
-- Explicar que `n` y `k` representan valores distintos segun el algoritmo (por ejemplo, numero de elementos y rango de claves); no presentar `O(n)` sin describir los supuestos sobre el rango, los digitos o la distribucion en cubetas.
+## Normalización y conteo
 
-## Convenciones de contribucion
+`src/bibliometric_analysis/text_processing.py` contiene dos funciones:
 
-- Usar nombres en ingles, completos y especificos: `count_word_frequencies`, no nombres vagos como `process_data`.
-- Escribir comentarios y docstrings en espanol para explicar decisiones o reglas que no sean obvias; no comentar cada linea.
-- Preferir funciones cortas con una responsabilidad clara y tipos de entrada y salida entendibles.
-- Evitar codigo duplicado, variables globales mutables y dependencias externas que no sean necesarias.
-- Mantener el ordenamiento y la medicion separados del procesamiento de documentos.
-- Cuando una regla del curso no este definida, dejarla documentada como decision pendiente en lugar de ocultarla como supuesto.
+- `tokenize_text(text)` separa palabras y conserva letras acentuadas, guiones y apóstrofes internos. Pasa los términos a minúsculas y no incluye tokens formados solo por números.
+- `count_term_frequencies(abstracts)` cuenta las apariciones en todos los abstracts y devuelve un diccionario de frecuencias.
 
-## Preparacion del entorno (propuesta)
+No se eliminan stopwords ni se aplican stemming o lematización. Los compuestos como `ai-driven` se cuentan como un término.
 
-Se recomienda Python 3.11 o superior y un entorno virtual local:
+## Counting Sort
+
+Archivo: `src/bibliometric_analysis/ranking/counting_sort.py`.
+
+### Entrada y salida
+
+Recibe una lista de pares `(termino, frecuencia)` con frecuencias enteras no negativas y devuelve una nueva lista ordenada de mayor a menor. No modifica la lista original. Si la entrada está vacía, devuelve `[]`.
+
+```python
+from bibliometric_analysis.ranking import counting_sort
+
+items = [("ai", 2), ("education", 1), ("model", 2)]
+print(counting_sort(items))
+# [('ai', 2), ('model', 2), ('education', 1)]
+```
+
+Los términos empatados se guardan en la misma cubeta. Como se agregan y se recuperan en orden, se conserva entre ellos el orden de entrada; no se agrega un desempate alfabético.
+
+### Idea del algoritmo
+
+1. Busca la frecuencia máxima.
+2. Crea una lista de cubetas: el índice de cada cubeta representa una frecuencia posible.
+3. Guarda cada par en la cubeta indicada por su frecuencia.
+4. Recorre las cubetas desde la frecuencia máxima hasta cero y concatena sus elementos.
+
+El algoritmo no compara los pares entre sí: usa la frecuencia como índice. Si hay `n` términos distintos y `k` frecuencias posibles desde cero hasta la máxima, el tiempo y el espacio adicional son `O(n + k)`. En particular, `k = frecuencia_máxima + 1`; por eso el algoritmo es conveniente cuando ese rango no es desproporcionadamente grande.
+
+### Ejecutar Counting Sort sobre el corpus
+
+La medición siguiente incluye únicamente la llamada al algoritmo; extracción y conteo quedan fuera del cronómetro:
+
+```python
+from time import perf_counter
+
+from bibliometric_analysis.pdf_extractor import extract_all_from_directory
+from bibliometric_analysis.text_processing import count_term_frequencies
+from bibliometric_analysis.ranking import counting_sort
+
+records = extract_all_from_directory("data/raw")
+abstracts = [record["abstract"] for record in records if record["abstract"]]
+frequencies = count_term_frequencies(abstracts)
+items = list(frequencies.items())
+
+start = perf_counter()
+ranking = counting_sort(items)
+elapsed_ms = (perf_counter() - start) * 1000
+
+print(f"Tiempo de Counting Sort: {elapsed_ms:.3f} ms")
+for position, (term, frequency) in enumerate(ranking[:15], start=1):
+    print(f"{position:>2}. {term:<20} {frequency}")
+```
+
+## Ejecución del proyecto
+
+Instalar en un entorno virtual desde la raíz del proyecto:
 
 ```powershell
-py -3.11 -m venv .venv
+python -m venv .venv
 .venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
-La base actual no agrega dependencias de ejecucion. Cuando acordemos el formato real de entrada y la forma de extraer PDF, se elegira una biblioteca adecuada y se fijara su version. La interfaz de linea de comandos aun esta pendiente; no hay un comando de analisis implementado todavia.
+El comando `bibliometric-analysis` y `main.py` actualmente delegan la ejecución al flujo de Bucket Sort. Para ejecutar y medir Counting Sort individualmente, usa el ejemplo de la sección anterior. No se alteró la implementación de Radix Sort ni Bucket Sort.
 
-## Algoritmos en palabras sencillas
+## Módulos principales
 
-Los tres metodos deben ordenar por la frecuencia numerica, sin comparar repetidamente un elemento contra otro como haria un algoritmo de comparacion tradicional:
+| Módulo | Responsabilidad |
+| --- | --- |
+| `pdf_extractor/pdf_extractor.py` | Extraer, limpiar y validar información de los PDF. |
+| `text_processing.py` | Tokenizar abstracts y contar términos. |
+| `ranking/counting_sort.py` | Ordenar pares por frecuencia mediante cubetas indexadas. |
+| `ranking/radix_sort.py` | Implementación de Radix Sort a cargo de otro integrante. |
+| `ranking/bucket_sort.py` | Implementación de Bucket Sort a cargo de otro integrante. |
+| `main.py`, `cli.py` | Entradas actuales del programa, conectadas al flujo de Bucket Sort. |
 
-- **Counting Sort** cuenta cuantas veces aparece cada valor de frecuencia y reconstruye el orden recorriendo esos conteos. Es directo cuando los valores son enteros y su rango no es demasiado grande. Para pares termino-frecuencia, el conteo debe conservar o recuperar los terminos asociados a cada valor.
-- **Radix Sort** ordena enteros por partes (por ejemplo, digito por digito), desde la posicion menos significativa. En cada pasada usa un ordenamiento estable para conservar el orden logrado en las pasadas anteriores. Los elementos con igual frecuencia quedan juntos, pero el orden entre ellos depende del orden estable usado y de la entrada.
-- **Bucket Sort** distribuye los valores en grupos o cubetas segun su rango, ordena cada cubeta y concatena los grupos. Su rendimiento lineal depende de una distribucion apropiada y de una forma eficiente de ordenar cada cubeta; no es lineal para cualquier entrada por defecto.
-
-En estos algoritmos, "no basado en comparaciones" significa que aprovechan que las claves son numeros enteros o pertenecen a un rango/dominio que se puede recorrer. No significa que cualquier dato o variante tenga automaticamente complejidad lineal. Como varios terminos pueden tener la misma frecuencia, el ranking debe conservarlos todos. No se requiere ordenar alfabeticamente los terminos que empaten.
-
-## Commits personales
-
-El usuario hara los commits. Para mantener un historial facil de revisar:
-
-1. Revisar `git status` y `git diff` para confirmar que solo se incluyan los cambios esperados.
-2. Agrupar cambios relacionados en un commit; evitar mezclar estructura, corpus y una funcionalidad no relacionada.
-3. Usar un asunto corto en modo imperativo, por ejemplo `Add project structure` o `Implement counting sort`.
-4. Agregar una descripcion breve cuando el cambio necesite contexto. No incluir PDF u otros archivos sensibles si el commit no debe contenerlos.
-5. Revisar el commit con `git show --stat` despues de crearlo.
-
-## Estado actual
-
-La estructura y la especificacion inicial estan preparadas y los 20 PDF estan en `data/raw/`. La extraccion de PDF, el procesamiento del corpus, los algoritmos y la interfaz se implementaran despues de definir la extraccion de abstracts. La normalizacion opcional ya esta acordada y no se eliminaran stopwords ni se agregara un desempate. El informe se abordara despues de terminar la aplicacion.
+Los archivos generados pertenecen a `data/processed/`. No se incluyen carpetas de `tests/` ni `reports/` en la estructura actual.

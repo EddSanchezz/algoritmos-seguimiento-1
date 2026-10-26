@@ -256,16 +256,8 @@ def remove_embedded_references(texto):
 
 
 def normalize_abstract(text: str) -> str:
-    """Pasa el abstract a minusculas y elimina diacriticos, conservando la enie."""
-    text = unicodedata.normalize("NFKC", text).lower()
-    protected = text.replace("ñ", "\x00")
-    decomposed = unicodedata.normalize("NFD", protected)
-    without_marks = "".join(
-        character
-        for character in decomposed
-        if unicodedata.category(character) != "Mn"
-    )
-    return unicodedata.normalize("NFC", without_marks.replace("\x00", "ñ"))
+    """Pasa el abstract a minusculas y conserva sus acentos."""
+    return unicodedata.normalize("NFC", text.lower())
 
 
 def _file_id(path):

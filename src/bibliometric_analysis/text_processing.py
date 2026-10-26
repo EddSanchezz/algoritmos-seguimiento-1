@@ -1,15 +1,17 @@
 """Conteo de terminos en abstracts extraidos y normalizados."""
 
 import re
+import unicodedata
 from collections import Counter
 from collections.abc import Iterable
 
-TOKEN_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
+TOKEN_PATTERN = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)
 
 
 def tokenize_text(text: str) -> list[str]:
-    """Separa el abstract en terminos sin volver a normalizarlo."""
-    return TOKEN_PATTERN.findall(text)
+    """Separa palabras, conserva acentos y compuestos, y omite numeros."""
+    normalized_text = unicodedata.normalize("NFC", text.lower())
+    return TOKEN_PATTERN.findall(normalized_text)
 
 
 def count_term_frequencies(abstracts: Iterable[str | None]) -> dict[str, int]:
