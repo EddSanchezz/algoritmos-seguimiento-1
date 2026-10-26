@@ -10,18 +10,29 @@ def counting_sort(items: list[tuple[str, int]]) -> list[tuple[str, int]]:
     if not items:
         return []
 
-    for _, frequency in items:
+    max_frequency = 0
+    for item in items:
+        frequency = item[1]
         if frequency < 0:
             raise ValueError("Las frecuencias no pueden ser negativas")
+        if frequency > max_frequency:
+            max_frequency = frequency
 
-    max_frequency = max(frequency for _, frequency in items)
-    buckets = [[] for _ in range(max_frequency + 1)]
+    buckets = []
+    frequency = 0
+    while frequency <= max_frequency:
+        buckets.append([])
+        frequency += 1
 
     for item in items:
-        buckets[item[1]].append(item)
+        frequency = item[1]
+        buckets[frequency].append(item)
 
     ordered_items = []
-    for frequency in range(max_frequency, -1, -1):
-        ordered_items.extend(buckets[frequency])
+    frequency = max_frequency
+    while frequency >= 0:
+        for item in buckets[frequency]:
+            ordered_items.append(item)
+        frequency -= 1
 
     return ordered_items
