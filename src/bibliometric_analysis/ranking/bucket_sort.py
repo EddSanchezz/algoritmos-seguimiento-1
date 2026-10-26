@@ -17,7 +17,6 @@ FrequencyPair = tuple[str, int]
 def run_bucket_sort(
     corpus_directory: Path = DEFAULT_CORPUS_DIRECTORY,
     top: int = DEFAULT_TOP_TERMS,
-    normalize: bool = True,
 ) -> None:
     """Extrae el corpus, cuenta terminos y muestra el top con Bucket Sort."""
     if top < 1:
@@ -27,7 +26,7 @@ def run_bucket_sort(
     abstracts = [document["abstract"] for document in documents if document.get("abstract")]
     _warn_missing_abstracts(documents)
 
-    frequencies = count_term_frequencies(abstracts, normalize=normalize)
+    frequencies = count_term_frequencies(abstracts)
     pairs = list(frequencies.items())
 
     start = time.perf_counter()
@@ -102,15 +101,19 @@ def _extract_documents(corpus_directory: Path) -> list[dict]:
     if not corpus_directory.is_dir():
         raise FileNotFoundError(f"No existe el directorio del corpus: {corpus_directory}")
     documents = extract_all_from_directory(str(corpus_directory))
-    return sorted(documents, key=lambda document: str(document["archivo"]))
+    return sorted(
+        documents,
+        key=lambda document: str(document.get("file") or document.get("archivo", "")),
+    )
 
 
 def _warn_missing_abstracts(documents: list[dict]) -> None:
     """Avisa por stderr cuando un documento no tiene abstract extraible."""
     for document in documents:
         if not document.get("abstract"):
+            file_name = document.get("file") or document.get("archivo", "documento")
             print(
-                f"Aviso: no se pudo extraer el abstract de {document['archivo']}",
+                f"Aviso: no se pudo extraer el abstract de {file_name}",
                 file=sys.stderr,
             )
 

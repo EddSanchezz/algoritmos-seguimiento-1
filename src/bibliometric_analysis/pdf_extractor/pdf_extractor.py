@@ -255,6 +255,19 @@ def remove_embedded_references(texto):
     return REFERENCIA_INCRUSTADA.sub("", texto)
 
 
+def normalize_abstract(text: str) -> str:
+    """Pasa el abstract a minusculas y elimina diacriticos, conservando la enie."""
+    text = unicodedata.normalize("NFKC", text).lower()
+    protected = text.replace("ñ", "\x00")
+    decomposed = unicodedata.normalize("NFD", protected)
+    without_marks = "".join(
+        character
+        for character in decomposed
+        if unicodedata.category(character) != "Mn"
+    )
+    return unicodedata.normalize("NFC", without_marks.replace("\x00", "ñ"))
+
+
 def _file_id(path):
     """Obtiene el numero inicial del nombre del archivo."""
     match = re.match(r"(\d+)", Path(path).name)
@@ -305,7 +318,7 @@ def extract_pdf(pdf_path):
     sin_referencias = remove_embedded_references(abstract)
     if sin_referencias != abstract:
         record["warnings"].append("se elimino una referencia bibliografica incrustada")
-    record["abstract"] = limpiar(sin_referencias).lower()
+    record["abstract"] = normalize_abstract(limpiar(sin_referencias))
     return record
 
 
